@@ -3,6 +3,7 @@
 namespace Laravel\Jetstream;
 
 use Illuminate\Contracts\Http\Kernel;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
@@ -14,6 +15,7 @@ use Laravel\Jetstream\Http\Livewire\CreateTeamForm;
 use Laravel\Jetstream\Http\Livewire\DeleteTeamForm;
 use Laravel\Jetstream\Http\Livewire\DeleteUserForm;
 use Laravel\Jetstream\Http\Livewire\LogoutOtherBrowserSessionsForm;
+use Laravel\Jetstream\Http\Livewire\NavigationDropdown;
 use Laravel\Jetstream\Http\Livewire\TeamMemberManager;
 use Laravel\Jetstream\Http\Livewire\TwoFactorAuthenticationForm;
 use Laravel\Jetstream\Http\Livewire\UpdatePasswordForm;
@@ -35,6 +37,7 @@ class JetstreamServiceProvider extends ServiceProvider
 
         $this->app->afterResolving(BladeCompiler::class, function () {
             if (config('jetstream.stack') === 'livewire' && class_exists(Livewire::class)) {
+                Livewire::component('navigation-dropdown', NavigationDropdown::class);
                 Livewire::component('profile.update-profile-information-form', UpdateProfileInformationForm::class);
                 Livewire::component('profile.update-password-form', UpdatePasswordForm::class);
                 Livewire::component('profile.two-factor-authentication-form', TwoFactorAuthenticationForm::class);
@@ -92,6 +95,7 @@ class JetstreamServiceProvider extends ServiceProvider
             $this->registerComponent('authentication-card-logo');
             $this->registerComponent('button');
             $this->registerComponent('confirmation-modal');
+            $this->registerComponent('confirms-password');
             $this->registerComponent('danger-button');
             $this->registerComponent('dialog-modal');
             $this->registerComponent('dropdown');
@@ -153,7 +157,7 @@ class JetstreamServiceProvider extends ServiceProvider
         ], 'jetstream-team-migrations');
 
         $this->publishes([
-            __DIR__.'/../routes/'.config('jetstream.stack').'.php' => base_path('routes/jetstream'),
+            __DIR__.'/../routes/'.config('jetstream.stack').'.php' => base_path('routes/jetstream.php'),
         ], 'jetstream-routes');
     }
 
@@ -201,5 +205,39 @@ class JetstreamServiceProvider extends ServiceProvider
 
         $kernel->appendMiddlewareToGroup('web', ShareInertiaData::class);
         $kernel->appendToMiddlewarePriority(ShareInertiaData::class);
+
+        Fortify::loginView(function () {
+            return Inertia::render('Auth/Login', [
+                'canResetPassword' => Route::has('password.request'),
+                'status' => session('status'),
+            ]);
+        });
+
+        Fortify::requestPasswordResetLinkView(function () {
+            return Inertia::render('Auth/ForgotPassword', [
+                'status' => session('status'),
+            ]);
+        });
+
+        Fortify::resetPasswordView(function (Request $request) {
+            return Inertia::render('Auth/ResetPassword', [
+                'email' => $request->input('email'),
+                'token' => $request->route('token'),
+            ]);
+        });
+
+        Fortify::registerView(function () {
+            return Inertia::render('Auth/Register');
+        });
+
+        Fortify::verifyEmailView(function () {
+            return Inertia::render('Auth/VerifyEmail', [
+                'status' => session('status'),
+            ]);
+        });
+
+        Fortify::twoFactorChallengeView(function () {
+            return Inertia::render('Auth/TwoFactorChallenge');
+        });
     }
 }
